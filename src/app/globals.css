@@ -1,0 +1,135 @@
+@import "tailwindcss";
+
+:root {
+	color-scheme: light dark;
+	--bg-from: #0b1222;
+	--bg-via: #0a0a0f;
+	--bg-to: #05060a;
+	--text-primary: #f5f7fb;
+	--text-muted: #c6c8d0;
+	--hill-bg: #1f2937;
+	--chip-bg: rgba(255, 255, 255, 0.06);
+	--border-muted: rgba(255, 255, 255, 0.12);
+	--accent-ghost: rgba(255, 255, 255, 0.14);
+	--accent-foreground: #f5f7fb;
+	--panel-bg: #0f172a;
+	--panel-border: rgba(255, 255, 255, 0.08);
+	--tab-bg: #1f2937;
+	--tab-indicator: #f8fafc;
+	--tab-active: #0f172a;
+	/* Downloader page specific variables */
+	--page-bg-gradient-from: #000000;
+	--page-bg-gradient-via: #1a1a2e;
+	--page-bg-gradient-to: #000000;
+	--card-bg: #1a1a2e;
+	--card-text: #ffffff;
+	--card-muted-text: #b0b0b0;
+}
+
+:root.theme-light {
+	--bg-from: #e9eef7;
+	--bg-via: #f5f7fb;
+	--bg-to: #ffffff;
+	--text-primary: #0f172a;
+	--text-muted: #475569;
+	--hill-bg: #d7deeb;
+	--chip-bg: rgba(15, 23, 42, 0.05);
+	--border-muted: rgba(15, 23, 42, 0.12);
+	--accent-ghost: rgba(15, 23, 42, 0.08);
+	--accent-foreground: #0f172a;
+	--panel-bg: #ffffff;
+	--panel-border: rgba(15, 23, 42, 0.08);
+	--tab-bg: #e2e8f0;
+	--tab-indicator: #0f172a;
+	--tab-active: #f8fafc;
+	/* Downloader page specific variables for light mode */
+	--page-bg-gradient-from: #f5f7fb;
+	--page-bg-gradient-via: #ffffff;
+	--page-bg-gradient-to: #f8fafc;
+	--card-bg: #ffffff;
+	--card-text: #0f172a;
+	--card-muted-text: #64748b;
+}
+
+:root.theme-dark {
+	--bg-from: #0b1222;
+	--bg-via: #0a0a0f;
+	--bg-to: #05060a;
+	--text-primary: #f5f7fb;
+	--text-muted: #c6c8d0;
+	--hill-bg: #1f2937;
+	--chip-bg: rgba(255, 255, 255, 0.06);
+	--border-muted: rgba(255, 255, 255, 0.12);
+	--accent-ghost: rgba(255, 255, 255, 0.14);
+	--accent-foreground: #f5f7fb;
+	--panel-bg: #0f172a;
+	--panel-border: rgba(255, 255, 255, 0.08);
+	--tab-bg: #1f2937;
+	--tab-indicator: #f8fafc;
+	--tab-active: #0f172a;
+	/* Downloader page specific variables */
+	--page-bg-gradient-from: #000000;
+	--page-bg-gradient-via: #1a1a2e;
+	--page-bg-gradient-to: #000000;
+	--card-bg: #1a1a2e;
+	--card-text: #ffffff;
+	--card-muted-text: #b0b0b0;
+}
+
+body {
+	background: var(--bg-to);
+	color: var(--text-primary);
+	transition: background 200ms ease, color 200ms ease;
+}
+
+.app-bg {
+	background: linear-gradient(180deg, var(--bg-from) 0%, var(--bg-via) 45%, var(--bg-to) 100%);
+}
+
+.hill-surface {
+	background: var(--hill-bg);
+}
+
+.page-gradient {
+	background: linear-gradient(to bottom, var(--page-bg-gradient-from) 0%, var(--page-bg-gradient-via) 45%, var(--page-bg-gradient-to) 100%);
+}
+
+.card-bg {
+	background-color: var(--card-bg);
+	color: var(--card-text);
+	transition: background-color 200ms ease, color 200ms ease;
+}
+
+.card-muted {
+	color: var(--card-muted-text);
+}
+
+.platform-tile {
+	--hover-scale: 1;
+	animation: platform-wave 2.4s ease-in-out infinite;
+	transform: translateY(0) scale(var(--hover-scale));
+	transition: transform 200ms ease, box-shadow 200ms ease, filter 200ms ease;
+	will-change: transform;
+}
+
+.platform-tile:hover {
+	--hover-scale: 1.08;
+	box-shadow: 0 0 30px rgba(255, 255, 255, 0.25);
+	filter: drop-shadow(0 6px 15px rgba(0, 0, 0, 0.35));
+}
+
+@keyframes platform-wave {
+	0%,
+	100% {
+		transform: translateY(0) scale(var(--hover-scale));
+	}
+	25% {
+		transform: translateY(-10px) scale(var(--hover-scale));
+	}
+	50% {
+		transform: translateY(0) scale(var(--hover-scale));
+	}
+	75% {
+		transform: translateY(8px) scale(var(--hover-scale));
+	}
+}
