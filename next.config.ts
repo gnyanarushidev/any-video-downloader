@@ -5,12 +5,6 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
  
   /* allowing the origins  */
-  experimental: {
-  	allowedDevOrigins: [
-		"http://65.1.100.65:3000",
-		"http://localhost:3000"
-	]
-  }
 
 };
 
