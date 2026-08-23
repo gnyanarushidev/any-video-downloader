@@ -1,26 +1,27 @@
-FROM node:20-bookworm-slim 
+FROM node:22-bookworm-slim
 
-WORKDIR /app 
+WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./ 
+COPY package.json pnpm-lock.yaml ./
 
+RUN corepack enable && \
+    pnpm config set ignore-scripts 0
 
-RUN corepack enable 
-RUN pnpm install 
+RUN pnpm install
 
+COPY . .
 
-COPY . . 
+RUN pnpm build
 
-RUN apt-get update && apt-get install -y ffmpeg curl \
- && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-    -o /usr/local/bin/yt-dlp \
- && chmod +x /usr/local/bin/yt-dlp
+# Install yt-dlp and ffmpeg using apt-get (Bookworm-slim is Debian-based)
+RUN apt-get update && apt-get install -y --no-install-recommends yt-dlp ffmpeg curl
 
-ENV YTDLP_BINARY_PATH=/usr/local/bin/yt-dlp
-
-
-RUN pnpm build 
+# Set yt-dlp binary path for ytdlp-nodejs
+ENV YTDLP_BINARY_PATH=/usr/bin/yt-dlp
+ENV FFMPEG_PATH=/usr/bin/ffmpeg
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 EXPOSE 3000
-CMD ["pnpm", "dev"]
 
+CMD ["pnpm", "start"]

@@ -6,14 +6,33 @@ import { YtDlp } from "ytdlp-nodejs";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const DEFAULT_MAX_ZIP_ITEMS = 5;
+const DEFAULT_MAX_ZIP_TOTAL_MB = 400;
+
+function readLimitEnv(name: string, fallback: number) {
+  const raw = process.env[name];
+  const value = raw ? Number(raw) : NaN;
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
 export async function POST(request: NextRequest) {
   try {
+    if (process.env.ENABLE_ZIP_DOWNLOADS === "false") {
+      return new Response("ZIP downloads are disabled on this deployment tier.", { status: 503 });
+    }
+
     const body = await request.json();
     const urls: string[] = body?.urls ?? [];
     const kind: "video" | "audio" = body?.kind === "audio" ? "audio" : "video";
 
+    const maxZipItems = readLimitEnv("MAX_ZIP_ITEMS", DEFAULT_MAX_ZIP_ITEMS);
+    const maxZipTotalBytes = readLimitEnv("MAX_ZIP_TOTAL_MB", DEFAULT_MAX_ZIP_TOTAL_MB) * 1024 * 1024;
+
     if (!Array.isArray(urls) || urls.length < 2) {
       return new Response("At least two URLs required for ZIP download", { status: 400 });
+    }
+    if (urls.length > maxZipItems) {
+      return new Response(`ZIP download rejected: max ${maxZipItems} items allowed on this host.`, { status: 413 });
     }
 
     const opts: { binaryPath?: string; ffmpegPath?: string } = {};
@@ -31,6 +50,10 @@ export async function POST(request: NextRequest) {
     }
 
     const totalSize = items.reduce((sum, it) => sum + (it.size ?? 0), 0);
+    if (totalSize && totalSize > maxZipTotalBytes) {
+      const maxMb = Math.floor(maxZipTotalBytes / (1024 * 1024));
+      return new Response(`ZIP download rejected: estimated total size above ${maxMb}MB host limit.`, { status: 413 });
+    }
 
     // Create an archive and stream to client
     const archive = archiver("zip", { zlib: { level: 9 } });

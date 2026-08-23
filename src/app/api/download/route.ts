@@ -1,12 +1,36 @@
-import { execSync } from "child_process";
-import * as fs from "fs";
 import { NextRequest } from "next/server";
-import * as os from "os";
-import * as path from "path";
 import { YtDlp } from "ytdlp-nodejs";
+
+function detectPlatform(url: string): string {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace("www.", "").toLowerCase();
+    if (host.includes("youtube.com") || host.includes("youtu.be")) return "youtube";
+    if (host.includes("facebook.com") || host.includes("fb.watch")) return "facebook";
+    if (host.includes("instagram.com")) return "instagram";
+    if (host.includes("twitter.com") || host.includes("x.com")) return "twitter";
+    if (host.includes("linkedin.com")) return "linkedin";
+    return "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const DEFAULT_MAX_DOWNLOAD_MB = 250;
+const DEFAULT_MAX_DURATION_SECONDS = 60 * 30;
+
+function readLimitEnv(name: string, fallback: number) {
+  const raw = process.env[name];
+  const value = raw ? Number(raw) : NaN;
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function parseApproxBytes(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,6 +50,9 @@ export async function GET(request: NextRequest) {
 
     const ytdlp = new YtDlp(opts);
 
+    const maxDownloadBytes = readLimitEnv("MAX_DOWNLOAD_MB", DEFAULT_MAX_DOWNLOAD_MB) * 1024 * 1024;
+    const maxDurationSeconds = readLimitEnv("MAX_DURATION_SECONDS", DEFAULT_MAX_DURATION_SECONDS);
+
     // Fetch metadata first for filename and size
     console.log("[Download] Fetching metadata...");
     const info = await ytdlp.getInfoAsync(url, { flatPlaylist: false });
@@ -40,97 +67,94 @@ export async function GET(request: NextRequest) {
 
     console.log("[Download] Format selection:", { selectedFormat: selectedFormat?.format_id, fallbackVideo: fallbackVideo?.format_id, fallbackAudio: fallbackAudio?.format_id });
     const title: string = (info as any).title ?? "download";
+    const durationSeconds = typeof (info as any).duration === "number" ? (info as any).duration : undefined;
+    if (durationSeconds && durationSeconds > maxDurationSeconds) {
+      return new Response(
+        `Download rejected: media duration exceeds limit (${maxDurationSeconds}s).`,
+        { status: 413 }
+      );
+    }
 
     // Get file as buffer using ytdlp-nodejs
-    const formatRequest = formatId
-      ? formatId
-      : kind === "audio"
-        ? "bestaudio"
-        : "best";
+    let formatRequest = formatId;
+    
+    // If no formatId specified, select best format based on platform
+    if (!formatRequest) {
+      const platform = detectPlatform(url);
+      if (platform === "youtube") {
+        // YouTube requires specific format selection, use best video+audio muxed
+        formatRequest = "bestvideo+bestaudio";
+      } else if (kind === "audio") {
+        formatRequest = "bestaudio";
+      } else {
+        formatRequest = "best";
+      }
+    }
 
     console.log("[Download] Using format request:", formatRequest, { kind });
 
-    let fileBuffer: Buffer | null = null;
-    let ext = selectedFormat?.ext ?? fallbackAudio?.ext ?? fallbackVideo?.ext ?? (kind === "audio" ? "m4a" : "mp4");
+    const selectedFileSize = parseApproxBytes(selectedFormat?.filesize) ?? parseApproxBytes(selectedFormat?.filesize_approx);
+    const fallbackFileSize = kind === "audio"
+      ? parseApproxBytes(fallbackAudio?.filesize) ?? parseApproxBytes(fallbackAudio?.filesize_approx)
+      : parseApproxBytes(fallbackVideo?.filesize) ?? parseApproxBytes(fallbackVideo?.filesize_approx);
+    const infoSize = parseApproxBytes((info as any).filesize) ?? parseApproxBytes((info as any).filesize_approx);
+    const estimatedSize = selectedFileSize ?? fallbackFileSize ?? infoSize;
+    if (estimatedSize && estimatedSize > maxDownloadBytes) {
+      const maxMb = Math.floor(maxDownloadBytes / (1024 * 1024));
+      return new Response(
+        `Download rejected: estimated file size is above ${maxMb}MB host limit.`,
+        { status: 413 }
+      );
+    }
 
+    const ext = selectedFormat?.ext ?? fallbackAudio?.ext ?? fallbackVideo?.ext ?? (kind === "audio" ? "m4a" : "mp4");
+
+    let stream: ReadableStream | null = null;
     try {
       console.log("[Download] Calling getFileAsync...");
       const file = await ytdlp.getFileAsync(url, { format: formatRequest });
       console.log("[Download] File retrieved successfully, type:", typeof file, "is Buffer:", Buffer.isBuffer(file));
-      
+
       // Handle both Buffer and object with stream
       if (Buffer.isBuffer(file)) {
-        fileBuffer = file;
+        stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(new Uint8Array(file));
+            controller.close();
+          },
+        });
       } else if (file && typeof file === "object" && typeof (file as any).stream === "function") {
-        const stream = (file as any).stream();
-        const chunks: Uint8Array[] = [];
-        for await (const chunk of stream) {
-          chunks.push(chunk);
-        }
-        fileBuffer = Buffer.concat(chunks);
+        stream = (file as any).stream();
       }
-      
-      if (!fileBuffer) {
-        throw new Error("Could not extract buffer from file response");
+
+      if (!stream) {
+        throw new Error("Could not extract stream from file response");
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[Download] getFileAsync failed:", { message: msg });
-      
-      // Fallback: try using execSync with yt-dlp directly
-      console.log("[Download] Attempting fallback with execSync...");
-      try {
-        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ytdl-"));
-        const tmpFile = path.join(tmpDir, "download");
-        const ytdlpCmd = `yt-dlp -f "${formatRequest}" -o "${tmpFile}" "${url}"`;
-        console.log("[Download] Running command...");
-        execSync(ytdlpCmd, { stdio: "pipe" });
-        
-        const files = fs.readdirSync(tmpDir);
-        const downloadedFile = files.find((f) => !f.startsWith("."));
-        if (!downloadedFile) throw new Error("No file found after download");
-        
-        const fullPath = path.join(tmpDir, downloadedFile);
-        fileBuffer = fs.readFileSync(fullPath);
-        
-        // Try to detect extension from downloaded file
-        const fileExt = path.extname(downloadedFile);
-        if (fileExt) {
-          ext = fileExt.substring(1);
-        }
-        
-        console.log("[Download] Fallback successful, buffer size:", fileBuffer.length, "ext:", ext);
-        // Clean up
-        fs.rmSync(tmpDir, { recursive: true });
-      } catch (fallbackErr) {
-        const fallbackMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
-        console.error("[Download] Fallback also failed:", fallbackMsg);
-        
-        if (msg.toLowerCase().includes("ffmpeg")) {
-          return new Response(
-            "Download failed: ffmpeg is required for this format. Install ffmpeg or choose a different quality.",
-            { status: 503 },
-          );
-        }
-        return new Response(`Download failed: ${msg}`, { status: 500 });
+
+      if (msg.toLowerCase().includes("ffmpeg")) {
+        return new Response(
+          "Download failed: ffmpeg is required for this format. Install ffmpeg or choose a different quality.",
+          { status: 503 },
+        );
       }
+      return new Response(`Download failed: ${msg}`, { status: 500 });
     }
 
-    if (!fileBuffer || fileBuffer.length === 0) {
-      console.error("[Download] Error: file buffer is empty");
-      return new Response("File download failed: empty file", { status: 500 });
+    if (!stream) {
+      return new Response("File download failed: unavailable stream", { status: 500 });
     }
 
     const filename = `${title}.${ext}`;
-    console.log("[Download] Sending file:", { filename, ext, size: fileBuffer.length });
+    console.log("[Download] Sending file:", { filename, ext, estimatedSize });
 
-    // Stream the file to the client
-    // Convert Buffer to Uint8Array to satisfy the Web Response body type
-    return new Response(new Uint8Array(fileBuffer), {
+    return new Response(stream, {
       headers: {
         "Content-Type": getContentType(ext, kind),
         "Content-Disposition": `attachment; filename="${encodeURIComponent(filename)}"`,
-        "Content-Length": String(fileBuffer.length),
+        ...(estimatedSize ? { "Content-Length": String(estimatedSize) } : {}),
       },
     });
   } catch (error) {
