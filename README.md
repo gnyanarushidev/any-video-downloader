@@ -41,7 +41,7 @@ This app can run on Render as a Docker Web Service, but free-tier limits require
 Set these in your Render service environment:
 
 ```env
-YTDLP_BINARY_PATH=/usr/bin/yt-dlp
+YTDLP_BINARY_PATH=/usr/local/bin/yt-dlp
 FFMPEG_PATH=/usr/bin/ffmpeg
 
 # Keep resource usage low for free tier

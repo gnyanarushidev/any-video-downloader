@@ -69,9 +69,10 @@ export async function POST(request: NextRequest) {
     try {
       info = await ytdlp.getInfoAsync(url, { flatPlaylist: true });
     } catch (e) {
-      // Provide clearer failure when binary is missing
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.toLowerCase().includes("ytdlp") || msg.toLowerCase().includes("yt-dlp")) {
+      const lower = msg.toLowerCase();
+
+      if (lower.includes("not found") || lower.includes("enoent")) {
         return NextResponse.json(
           {
             error:
@@ -81,6 +82,23 @@ export async function POST(request: NextRequest) {
           { status: 503 }
         );
       }
+
+      if (
+        lower.includes("precondition check failed") ||
+        lower.includes("requested format is not available") ||
+        lower.includes("unable to download api page") ||
+        lower.includes("http error 400")
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "yt-dlp could not extract playable formats from this source. Redeploy with latest yt-dlp and retry.",
+            details: msg,
+          },
+          { status: 502 }
+        );
+      }
+
       return NextResponse.json({ error: msg }, { status: 500 });
     }
 

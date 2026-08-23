@@ -8,7 +8,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: YTDLP_BINARY_PATH
-        value: /usr/bin/yt-dlp
+        value: /usr/local/bin/yt-dlp
       - key: FFMPEG_PATH
         value: /usr/bin/ffmpeg
       - key: MAX_DOWNLOAD_MB
