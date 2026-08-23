@@ -38,12 +38,23 @@ export function useMediaPreview(): UseMediaPreviewReturn {
           body: JSON.stringify({ url, platform, type }),
         });
 
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+
         if (!response.ok) {
-          throw new Error("Failed to fetch preview");
+          const errorMessage =
+            typeof payload.error === "string"
+              ? payload.error
+              : "Failed to fetch preview";
+          const details =
+            typeof payload.details === "string" ? payload.details : undefined;
+          throw new Error(
+            details
+              ? `${errorMessage} (HTTP ${response.status})\n${details}`
+              : `${errorMessage} (HTTP ${response.status})`
+          );
         }
 
-        const data = await response.json();
-        setMetadata(data);
+        setMetadata(payload as MediaMetadata | PlaylistMetadata);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to load preview"
