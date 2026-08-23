@@ -11,6 +11,8 @@ services:
         value: /usr/local/bin/yt-dlp
       - key: FFMPEG_PATH
         value: /usr/bin/ffmpeg
+      - key: YTDLP_COOKIES_PATH
+        value: /etc/secrets/youtube-cookies.txt
       - key: MAX_DOWNLOAD_MB
         value: "250"
       - key: MAX_DURATION_SECONDS

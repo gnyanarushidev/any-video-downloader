@@ -28,6 +28,12 @@ function resolveYtDlpBinaryPath() {
   return envPath;
 }
 
+function resolveCookiesPath() {
+  const cookiesPath = process.env.YTDLP_COOKIES_PATH;
+  if (cookiesPath && fs.existsSync(cookiesPath)) return cookiesPath;
+  return undefined;
+}
+
 export async function POST(request: NextRequest) {
   try {
     if (process.env.ENABLE_ZIP_DOWNLOADS === "false") {
@@ -53,11 +59,16 @@ export async function POST(request: NextRequest) {
     if (binaryPath) opts.binaryPath = binaryPath;
     if (process.env.FFMPEG_PATH) opts.ffmpegPath = process.env.FFMPEG_PATH;
     const ytdlp = new YtDlp(opts);
+    const cookiesPath = resolveCookiesPath();
 
     // Collect titles and approximate sizes for progress
     const items: { url: string; title: string; size?: number }[] = [];
     for (const url of urls) {
-      const info = await ytdlp.getInfoAsync(url, { flatPlaylist: false });
+      const info = await ytdlp.getInfoAsync(url, {
+        flatPlaylist: false,
+        additionalOptions: ["--js-runtimes", "node"],
+        ...(cookiesPath ? { cookies: cookiesPath } : {}),
+      } as any);
       const title: string = (info as any).title ?? "item";
       const size: number | undefined = (info as any).filesize ?? (info as any).filesize_approx;
       items.push({ url, title, size });
@@ -80,7 +91,9 @@ export async function POST(request: NextRequest) {
         format: kind === "audio"
           ? { filter: "audioonly", quality: "highest" }
           : { filter: "audioandvideo", quality: "highest", type: "mp4" },
-      });
+        additionalOptions: ["--js-runtimes", "node"],
+        ...(cookiesPath ? { cookies: cookiesPath } : {}),
+      } as any);
       const ext = kind === "audio" ? "mp3" : "mp4";
       const name = `${it.title}.${ext}`;
       const nodeStream = Readable.fromWeb(file.stream() as any);

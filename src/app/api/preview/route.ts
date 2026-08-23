@@ -43,6 +43,12 @@ function resolveYtDlpBinaryPath() {
   return envPath;
 }
 
+function resolveCookiesPath() {
+  const cookiesPath = process.env.YTDLP_COOKIES_PATH;
+  if (cookiesPath && fs.existsSync(cookiesPath)) return cookiesPath;
+  return undefined;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { url, type } = await request.json();
@@ -53,6 +59,7 @@ export async function POST(request: NextRequest) {
 
     // Safely create YtDlp instance, allowing PATH discovery or env overrides
     let ytdlp: YtDlp | null = null;
+    const cookiesPath = resolveCookiesPath();
     try {
       const opts: { binaryPath?: string; ffmpegPath?: string } = {};
       const binaryPath = resolveYtDlpBinaryPath();
@@ -84,6 +91,7 @@ export async function POST(request: NextRequest) {
       info = await ytdlp.getInfoAsync(url, {
         flatPlaylist: true,
         additionalOptions: ["--js-runtimes", "node"],
+        ...(cookiesPath ? { cookies: cookiesPath } : {}),
       } as any);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

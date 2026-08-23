@@ -30,6 +30,8 @@ Set environment variables in `.env.local`:
 ```env
 YTDLP_BINARY_PATH=/path/to/yt-dlp
 FFMPEG_PATH=/path/to/ffmpeg
+# Optional: path to exported YouTube cookies.txt for bot-check-gated videos
+YTDLP_COOKIES_PATH=/path/to/cookies.txt
 ```
 
 ## Deploying On Render (Free / Hobby)
@@ -43,6 +45,7 @@ Set these in your Render service environment:
 ```env
 YTDLP_BINARY_PATH=/usr/local/bin/yt-dlp
 FFMPEG_PATH=/usr/bin/ffmpeg
+YTDLP_COOKIES_PATH=/etc/secrets/youtube-cookies.txt
 
 # Keep resource usage low for free tier
 MAX_DOWNLOAD_MB=250

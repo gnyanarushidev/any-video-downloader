@@ -45,6 +45,12 @@ function resolveYtDlpBinaryPath() {
   return envPath;
 }
 
+function resolveCookiesPath() {
+  const cookiesPath = process.env.YTDLP_COOKIES_PATH;
+  if (cookiesPath && fs.existsSync(cookiesPath)) return cookiesPath;
+  return undefined;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const url = request.nextUrl.searchParams.get("url");
@@ -66,10 +72,15 @@ export async function GET(request: NextRequest) {
 
     const maxDownloadBytes = readLimitEnv("MAX_DOWNLOAD_MB", DEFAULT_MAX_DOWNLOAD_MB) * 1024 * 1024;
     const maxDurationSeconds = readLimitEnv("MAX_DURATION_SECONDS", DEFAULT_MAX_DURATION_SECONDS);
+    const cookiesPath = resolveCookiesPath();
 
     // Fetch metadata first for filename and size
     console.log("[Download] Fetching metadata...");
-    const info = await ytdlp.getInfoAsync(url, { flatPlaylist: false });
+    const info = await ytdlp.getInfoAsync(url, {
+      flatPlaylist: false,
+      additionalOptions: ["--js-runtimes", "node"],
+      ...(cookiesPath ? { cookies: cookiesPath } : {}),
+    } as any);
     console.log("[Download] Metadata fetched:", { title: (info as any).title, formatCount: (info as any).formats?.length });
 
     const formats: any[] = Array.isArray((info as any).formats) ? (info as any).formats : [];
@@ -126,7 +137,11 @@ export async function GET(request: NextRequest) {
     let stream: ReadableStream | null = null;
     try {
       console.log("[Download] Calling getFileAsync...");
-      const file = await ytdlp.getFileAsync(url, { format: formatRequest });
+      const file = await ytdlp.getFileAsync(url, {
+        format: formatRequest,
+        additionalOptions: ["--js-runtimes", "node"],
+        ...(cookiesPath ? { cookies: cookiesPath } : {}),
+      } as any);
       console.log("[Download] File retrieved successfully, type:", typeof file, "is Buffer:", Buffer.isBuffer(file));
 
       // Handle both Buffer and object with stream

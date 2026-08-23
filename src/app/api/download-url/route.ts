@@ -17,6 +17,12 @@ function resolveYtDlpBinaryPath() {
   return envPath;
 }
 
+function resolveCookiesPath() {
+  const cookiesPath = process.env.YTDLP_COOKIES_PATH;
+  if (cookiesPath && fs.existsSync(cookiesPath)) return cookiesPath;
+  return undefined;
+}
+
 function pickBestVideoFormat(formats: any[]): any | undefined {
   // Prefer formats with both audio and video, then highest resolution/bitrate
   const av = formats.filter((f) => f.vcodec !== "none" && f.acodec !== "none");
@@ -62,9 +68,14 @@ export async function POST(request: NextRequest) {
     if (process.env.FFMPEG_PATH) opts.ffmpegPath = process.env.FFMPEG_PATH;
 
     const ytdlp = new YtDlp(opts);
+    const cookiesPath = resolveCookiesPath();
 
     async function getDirect(url0: string) {
-      const info = await ytdlp.getInfoAsync(url0, { flatPlaylist: false });
+      const info = await ytdlp.getInfoAsync(url0, {
+        flatPlaylist: false,
+        additionalOptions: ["--js-runtimes", "node"],
+        ...(cookiesPath ? { cookies: cookiesPath } : {}),
+      } as any);
       const formats: any[] = Array.isArray((info as any).formats) ? (info as any).formats : [];
       const title: string = (info as any).title ?? "download";
       const chosen = kind === "audio" ? pickBestAudioFormat(formats) : pickBestVideoFormat(formats);
