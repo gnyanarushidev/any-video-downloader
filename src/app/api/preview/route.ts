@@ -81,7 +81,10 @@ export async function POST(request: NextRequest) {
     // Fetch metadata via yt-dlp
     let info: any;
     try {
-      info = await ytdlp.getInfoAsync(url, { flatPlaylist: true });
+      info = await ytdlp.getInfoAsync(url, {
+        flatPlaylist: true,
+        additionalOptions: ["--js-runtimes", "node"],
+      } as any);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       const lower = msg.toLowerCase();
@@ -110,6 +113,18 @@ export async function POST(request: NextRequest) {
             details: msg,
           },
           { status: 502 }
+        );
+      }
+
+      if (lower.includes("sign in to confirm you're not a bot") || lower.includes("cookies-from-browser")) {
+        return NextResponse.json(
+          {
+            error:
+              "YouTube is blocking this request with a bot-check challenge for the current server IP.",
+            details:
+              "This commonly affects Shorts and trending videos on shared/free hosting. Retry later, try another video, or use a paid/private server IP.",
+          },
+          { status: 429 }
         );
       }
 
@@ -157,6 +172,7 @@ export async function POST(request: NextRequest) {
     const description: string | undefined = video.description ?? undefined;
     const duration: string | undefined = secondsToTimestamp(video.duration);
     const thumb: string | undefined = video.thumbnail || (Array.isArray(video.thumbnails) ? video.thumbnails[0]?.url : undefined);
+
     const audioFormats: AudioFormatOption[] | undefined =
       type === "audio" && Array.isArray(video.formats)
         ? extractAudioFormats(video.formats)
