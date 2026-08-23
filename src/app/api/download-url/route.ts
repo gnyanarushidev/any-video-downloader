@@ -104,6 +104,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ items: results });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
+    const lower = msg.toLowerCase();
+    if (lower.includes("sign in to confirm you're not a bot") || lower.includes("cookies-from-browser")) {
+      return NextResponse.json(
+        {
+          error:
+            "YouTube is blocking this request with a bot-check challenge for the current server IP.",
+          details:
+            "This commonly affects Shorts and trending videos on shared/free hosting. Retry later, try another video, or use a paid/private server IP.",
+        },
+        { status: 429 }
+      );
+      }
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import * as fs from "fs";
 import { YtDlp } from "ytdlp-nodejs";
 
@@ -161,14 +161,28 @@ export async function GET(request: NextRequest) {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      const lower = msg.toLowerCase();
       console.error("[Download] getFileAsync failed:", { message: msg });
 
-      if (msg.toLowerCase().includes("ffmpeg")) {
+      if (lower.includes("ffmpeg")) {
         return new Response(
           "Download failed: ffmpeg is required for this format. Install ffmpeg or choose a different quality.",
           { status: 503 },
         );
       }
+
+      if (lower.includes("sign in to confirm you're not a bot") || lower.includes("cookies-from-browser")) {
+        return NextResponse.json(
+          {
+            error:
+              "YouTube is blocking this request with a bot-check challenge for the current server IP.",
+            details:
+              "This commonly affects Shorts and trending videos on shared/free hosting. Retry later, try another video, or use a paid/private server IP.",
+          },
+          { status: 429 }
+        );
+      }
+
       return new Response(`Download failed: ${msg}`, { status: 500 });
     }
 
@@ -187,8 +201,22 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[Download] Outer error:", error);
     const msg = error instanceof Error ? error.message : String(error);
+    const lower = msg.toLowerCase();
+    console.error("[Download] Outer error:", error);
+
+    if (lower.includes("sign in to confirm you're not a bot") || lower.includes("cookies-from-browser")) {
+      return NextResponse.json(
+        {
+          error:
+            "YouTube is blocking this request with a bot-check challenge for the current server IP.",
+          details:
+            "This commonly affects Shorts and trending videos on shared/free hosting. Retry later, try another video, or use a paid/private server IP.",
+        },
+        { status: 429 }
+      );
+    }
+
     return new Response(`Download failed: ${msg}`, { status: 500 });
   }
 }

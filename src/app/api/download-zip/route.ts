@@ -113,6 +113,13 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("ZIP download error:", error);
     const msg = error instanceof Error ? error.message : String(error);
+    const lower = msg.toLowerCase();
+    if (lower.includes("sign in to confirm you're not a bot") || lower.includes("cookies-from-browser")) {
+      return new Response(
+        "YouTube is blocking this request with a bot-check challenge for the current server IP.",
+        { status: 429 }
+      );
+    }
     return new Response(`ZIP download failed: ${msg}`, { status: 500 });
   }
 }
