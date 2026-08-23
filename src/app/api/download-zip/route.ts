@@ -1,4 +1,5 @@
 import archiver from "archiver";
+import * as fs from "fs";
 import { NextRequest } from "next/server";
 import { PassThrough, Readable } from "stream";
 import { YtDlp } from "ytdlp-nodejs";
@@ -13,6 +14,18 @@ function readLimitEnv(name: string, fallback: number) {
   const raw = process.env[name];
   const value = raw ? Number(raw) : NaN;
   return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function resolveYtDlpBinaryPath() {
+  const envPath = process.env.YTDLP_BINARY_PATH;
+  if (envPath && fs.existsSync(envPath)) return envPath;
+
+  const candidates = ["/usr/local/bin/yt-dlp", "/usr/bin/yt-dlp"];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  return envPath;
 }
 
 export async function POST(request: NextRequest) {
@@ -36,7 +49,8 @@ export async function POST(request: NextRequest) {
     }
 
     const opts: { binaryPath?: string; ffmpegPath?: string } = {};
-    if (process.env.YTDLP_BINARY_PATH) opts.binaryPath = process.env.YTDLP_BINARY_PATH;
+    const binaryPath = resolveYtDlpBinaryPath();
+    if (binaryPath) opts.binaryPath = binaryPath;
     if (process.env.FFMPEG_PATH) opts.ffmpegPath = process.env.FFMPEG_PATH;
     const ytdlp = new YtDlp(opts);
 

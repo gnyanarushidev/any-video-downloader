@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import * as fs from "fs";
 import { YtDlp } from "ytdlp-nodejs";
 
 function detectPlatform(url: string): string {
@@ -32,6 +33,18 @@ function parseApproxBytes(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
+function resolveYtDlpBinaryPath() {
+  const envPath = process.env.YTDLP_BINARY_PATH;
+  if (envPath && fs.existsSync(envPath)) return envPath;
+
+  const candidates = ["/usr/local/bin/yt-dlp", "/usr/bin/yt-dlp"];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  return envPath;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const url = request.nextUrl.searchParams.get("url");
@@ -45,7 +58,8 @@ export async function GET(request: NextRequest) {
     }
 
     const opts: { binaryPath?: string; ffmpegPath?: string } = {};
-    if (process.env.YTDLP_BINARY_PATH) opts.binaryPath = process.env.YTDLP_BINARY_PATH;
+    const binaryPath = resolveYtDlpBinaryPath();
+    if (binaryPath) opts.binaryPath = binaryPath;
     if (process.env.FFMPEG_PATH) opts.ffmpegPath = process.env.FFMPEG_PATH;
 
     const ytdlp = new YtDlp(opts);

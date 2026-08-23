@@ -1,8 +1,21 @@
 import { Platform } from "@/lib/utils/platform";
+import * as fs from "fs";
 import { NextRequest, NextResponse } from "next/server";
 import { YtDlp } from "ytdlp-nodejs";
 
 export const runtime = "nodejs";
+
+function resolveYtDlpBinaryPath() {
+  const envPath = process.env.YTDLP_BINARY_PATH;
+  if (envPath && fs.existsSync(envPath)) return envPath;
+
+  const candidates = ["/usr/local/bin/yt-dlp", "/usr/bin/yt-dlp"];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  return envPath;
+}
 
 function pickBestVideoFormat(formats: any[]): any | undefined {
   // Prefer formats with both audio and video, then highest resolution/bitrate
@@ -44,7 +57,8 @@ export async function POST(request: NextRequest) {
 
     // Instantiate yt-dlp with env-based paths if provided
     const opts: { binaryPath?: string; ffmpegPath?: string } = {};
-    if (process.env.YTDLP_BINARY_PATH) opts.binaryPath = process.env.YTDLP_BINARY_PATH;
+    const binaryPath = resolveYtDlpBinaryPath();
+    if (binaryPath) opts.binaryPath = binaryPath;
     if (process.env.FFMPEG_PATH) opts.ffmpegPath = process.env.FFMPEG_PATH;
 
     const ytdlp = new YtDlp(opts);

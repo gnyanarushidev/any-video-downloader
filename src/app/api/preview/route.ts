@@ -1,4 +1,5 @@
 import { AudioFormatOption } from "@/types/media";
+import * as fs from "fs";
 import { NextRequest, NextResponse } from "next/server";
 import { YtDlp } from "ytdlp-nodejs";
 export const runtime = "nodejs";
@@ -30,6 +31,18 @@ function secondsToTimestamp(seconds?: number): string | undefined {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
+function resolveYtDlpBinaryPath() {
+  const envPath = process.env.YTDLP_BINARY_PATH;
+  if (envPath && fs.existsSync(envPath)) return envPath;
+
+  const candidates = ["/usr/local/bin/yt-dlp", "/usr/bin/yt-dlp"];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  return envPath;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { url, type } = await request.json();
@@ -42,7 +55,8 @@ export async function POST(request: NextRequest) {
     let ytdlp: YtDlp | null = null;
     try {
       const opts: { binaryPath?: string; ffmpegPath?: string } = {};
-      if (process.env.YTDLP_BINARY_PATH) opts.binaryPath = process.env.YTDLP_BINARY_PATH;
+      const binaryPath = resolveYtDlpBinaryPath();
+      if (binaryPath) opts.binaryPath = binaryPath;
       if (process.env.FFMPEG_PATH) opts.ffmpegPath = process.env.FFMPEG_PATH;
       ytdlp = new YtDlp(opts);
     } catch (e) {
