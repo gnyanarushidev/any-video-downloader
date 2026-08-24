@@ -32,6 +32,8 @@ YTDLP_BINARY_PATH=/path/to/yt-dlp
 FFMPEG_PATH=/path/to/ffmpeg
 # Optional: path to exported YouTube cookies.txt for bot-check-gated videos
 YTDLP_COOKIES_PATH=/path/to/cookies.txt
+# Optional: HTTP/SOCKS proxy to route yt-dlp traffic through (bypasses IP bot-checks)
+YTDLP_PROXY=http://user:pass@proxy-host:port
 ```
 
 ## Deploying On Render (Free / Hobby)
@@ -46,6 +48,8 @@ Set these in your Render service environment:
 YTDLP_BINARY_PATH=/usr/local/bin/yt-dlp
 FFMPEG_PATH=/usr/bin/ffmpeg
 YTDLP_COOKIES_PATH=/etc/secrets/youtube-cookies.txt
+# Optional: route yt-dlp through a proxy to avoid shared-IP bot-checks
+# YTDLP_PROXY=http://user:pass@proxy-host:port
 
 # Keep resource usage low for free tier
 MAX_DOWNLOAD_MB=250

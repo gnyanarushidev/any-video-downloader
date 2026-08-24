@@ -23,6 +23,11 @@ function resolveCookiesPath() {
   return undefined;
 }
 
+function resolveProxyOptions(): string[] {
+  const proxy = process.env.YTDLP_PROXY?.trim();
+  return proxy ? [`--proxy=${proxy}`] : [];
+}
+
 function pickBestVideoFormat(formats: any[]): any | undefined {
   // Prefer formats with both audio and video, then highest resolution/bitrate
   const av = formats.filter((f) => f.vcodec !== "none" && f.acodec !== "none");
@@ -69,11 +74,12 @@ export async function POST(request: NextRequest) {
 
     const ytdlp = new YtDlp(opts);
     const cookiesPath = resolveCookiesPath();
+    const proxyOptions = resolveProxyOptions();
 
     async function getDirect(url0: string) {
       const info = await ytdlp.getInfoAsync(url0, {
         flatPlaylist: false,
-        additionalOptions: ["--js-runtimes", "node"],
+        additionalOptions: [...proxyOptions, "--js-runtimes", "node"],
         ...(cookiesPath ? { cookies: cookiesPath } : {}),
       } as any);
       const formats: any[] = Array.isArray((info as any).formats) ? (info as any).formats : [];

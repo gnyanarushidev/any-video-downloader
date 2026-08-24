@@ -34,6 +34,11 @@ function resolveCookiesPath() {
   return undefined;
 }
 
+function resolveProxyOptions(): string[] {
+  const proxy = process.env.YTDLP_PROXY?.trim();
+  return proxy ? [`--proxy=${proxy}`] : [];
+}
+
 export async function POST(request: NextRequest) {
   try {
     if (process.env.ENABLE_ZIP_DOWNLOADS === "false") {
@@ -60,13 +65,14 @@ export async function POST(request: NextRequest) {
     if (process.env.FFMPEG_PATH) opts.ffmpegPath = process.env.FFMPEG_PATH;
     const ytdlp = new YtDlp(opts);
     const cookiesPath = resolveCookiesPath();
+    const proxyOptions = resolveProxyOptions();
 
     // Collect titles and approximate sizes for progress
     const items: { url: string; title: string; size?: number }[] = [];
     for (const url of urls) {
       const info = await ytdlp.getInfoAsync(url, {
         flatPlaylist: false,
-        additionalOptions: ["--js-runtimes", "node"],
+        additionalOptions: [...proxyOptions, "--js-runtimes", "node"],
         ...(cookiesPath ? { cookies: cookiesPath } : {}),
       } as any);
       const title: string = (info as any).title ?? "item";
@@ -91,7 +97,7 @@ export async function POST(request: NextRequest) {
         format: kind === "audio"
           ? { filter: "audioonly", quality: "highest" }
           : { filter: "audioandvideo", quality: "highest", type: "mp4" },
-        additionalOptions: ["--js-runtimes", "node"],
+        additionalOptions: [...proxyOptions, "--js-runtimes", "node"],
         ...(cookiesPath ? { cookies: cookiesPath } : {}),
       } as any);
       const ext = kind === "audio" ? "mp3" : "mp4";

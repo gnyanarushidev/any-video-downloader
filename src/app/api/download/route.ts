@@ -51,6 +51,11 @@ function resolveCookiesPath() {
   return undefined;
 }
 
+function resolveProxyOptions(): string[] {
+  const proxy = process.env.YTDLP_PROXY?.trim();
+  return proxy ? [`--proxy=${proxy}`] : [];
+}
+
 export async function GET(request: NextRequest) {
   try {
     const url = request.nextUrl.searchParams.get("url");
@@ -73,12 +78,13 @@ export async function GET(request: NextRequest) {
     const maxDownloadBytes = readLimitEnv("MAX_DOWNLOAD_MB", DEFAULT_MAX_DOWNLOAD_MB) * 1024 * 1024;
     const maxDurationSeconds = readLimitEnv("MAX_DURATION_SECONDS", DEFAULT_MAX_DURATION_SECONDS);
     const cookiesPath = resolveCookiesPath();
+    const proxyOptions = resolveProxyOptions();
 
     // Fetch metadata first for filename and size
     console.log("[Download] Fetching metadata...");
     const info = await ytdlp.getInfoAsync(url, {
       flatPlaylist: false,
-      additionalOptions: ["--js-runtimes", "node"],
+      additionalOptions: [...proxyOptions, "--js-runtimes", "node"],
       ...(cookiesPath ? { cookies: cookiesPath } : {}),
     } as any);
     console.log("[Download] Metadata fetched:", { title: (info as any).title, formatCount: (info as any).formats?.length });
@@ -139,7 +145,7 @@ export async function GET(request: NextRequest) {
       console.log("[Download] Calling getFileAsync...");
       const file = await ytdlp.getFileAsync(url, {
         format: formatRequest,
-        additionalOptions: ["--js-runtimes", "node"],
+        additionalOptions: [...proxyOptions, "--js-runtimes", "node"],
         ...(cookiesPath ? { cookies: cookiesPath } : {}),
       } as any);
       console.log("[Download] File retrieved successfully, type:", typeof file, "is Buffer:", Buffer.isBuffer(file));

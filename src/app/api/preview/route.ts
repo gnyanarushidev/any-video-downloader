@@ -49,6 +49,11 @@ function resolveCookiesPath() {
   return undefined;
 }
 
+function resolveProxyOptions(): string[] {
+  const proxy = process.env.YTDLP_PROXY?.trim();
+  return proxy ? [`--proxy=${proxy}`] : [];
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { url, type } = await request.json();
@@ -90,7 +95,7 @@ export async function POST(request: NextRequest) {
     try {
       info = await ytdlp.getInfoAsync(url, {
         flatPlaylist: true,
-        additionalOptions: ["--js-runtimes", "node"],
+        additionalOptions: [...resolveProxyOptions(), "--js-runtimes", "node"],
         ...(cookiesPath ? { cookies: cookiesPath } : {}),
       } as any);
     } catch (e) {
